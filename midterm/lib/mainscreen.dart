@@ -1,276 +1,349 @@
-
+import 'dart:async';
 import 'dart:convert';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+//import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:progress_dialog/progress_dialog.dart';
+import 'package:toast/toast.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:midterm/destination.dart';
+import 'package:midterm/info.dart';
 
+void main() => runApp(MainScreen());
 
 class MainScreen extends StatefulWidget {
+  
 
   @override
   _MainScreenState createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
+  List locationdata;
   double screenHeight, screenWidth;
-  List location;
   bool _visible = false;
-   String curtype = "Recent";
-  String titlecenter = "No location found";
-  String dropdownValue = 'Kedah';
+  //String curstate = "Recent";
 
-   @override
+  List locationList;
+  String thestate;
+
+  List _dropDownState = [
+    "Kedah",
+    "Kelantan",
+    "Perlis",
+    ];
+    /*"Penang",
+    "Sabah",
+    "Sarawak",
+    "Terengganu"
+    "Johor",
+    "Perak",
+    "Selangor",
+    "Melaka",
+    "Negeri Sembilan",
+    "Pahang",*/
+  
+
+  String curstate = "Kedah";
+  //bool sort = false;
+  //bool loading = true;
+
+  @override
   void initState() {
     super.initState();
     _loadData();
-    }
-  
+    loadPref();
+  }
 
-  @override
   Widget build(BuildContext context) {
     screenHeight = MediaQuery.of(context).size.height;
     screenWidth = MediaQuery.of(context).size.width;
-    TextEditingController _prdController = new TextEditingController();
+    //TextEditingController _prdController = new TextEditingController();
 
-    return Scaffold(
-          appBar: AppBar(
-            title: Text(
-              'Location List',
-              style: TextStyle(
-                color: Colors.white,
+    if (locationdata == null) {
+      return Scaffold(
+        //theme: ThemeData.dark(),
+        //debugShowCheckedModeBanner: false,
+        //home: Scaffold(
+        backgroundColor: Colors.amber,
+        appBar: AppBar(
+          title: Text('Malay Destination'),
+        ),
+        body: Container(
+            child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              CircularProgressIndicator(),
+              SizedBox(
+                height: 10,
               ),
-            ),
-            actions: <Widget>[
-              IconButton(
-                icon: _visible
-                    ? new Icon(Icons.expand_more)
-                    : new Icon(Icons.expand_less),
-                onPressed: () {
-                  setState(() {
-                    if (_visible) {
-                      _visible = false;
-                    } else {
-                      _visible = true;
-                    }
-                  });
-                },
-              ),
-              //
+              Text(
+                "Loading . . .",
+                style:
+                    TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+              )
             ],
           ),
-          body: Container(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                Visibility(
-                  visible: _visible,
-                  child: Card(
+        )),
+      );
+    } else {
+      //return WillPopScope(
+      //onWillPop: _onBackPressed,
+      return Scaffold(
+        backgroundColor: Colors.amber,
+        //drawer: mainDrawer(context),
+        appBar: AppBar(
+          backgroundColor: Colors.amber[800],
+          //elevation: 0.5,
+          //title: Container(
+          //padding: EdgeInsets.only(left: 70),
+          title:
+              Text("Best Destinations", style: TextStyle(color: Colors.white)),
+          actions: <Widget>[
+            IconButton(
+              icon: _visible
+                  ? new Icon(Icons.expand_more)
+                  : new Icon(Icons.expand_less),
+              onPressed: () {
+                setState(() {
+                  if (_visible) {
+                    _visible = false;
+                  } else {
+                    _visible = true;
+                  }
+                });
+              },
+            ),
+          ],
+        ),
+        body: Container(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              //TableCell(
+              //Container(
+              //height: 40,
+              Container(
+                //height: 20,
+                child: DropdownButton(
+                  hint: Text('State', style: TextStyle(color: Colors.black)),
+                  value: thestate,
+                  onChanged: (newValue) {
+                    setState(() {
+                      thestate = newValue;
+                      print(thestate);
+                    });
+                    _sortItem(thestate);
+                  },
+                  items: _dropDownState.map((thestate) {
+                    return DropdownMenuItem(
+                      child: new Text(
+                        thestate,
+                        style: TextStyle(color: Colors.black),
+                      ),
+                      value: thestate,
+                    );
+                  }).toList(),
+                ),
+              ),
+
+              Text(curstate,
+                  style: TextStyle(
+                      fontSize: 20.0,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black)),
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  childAspectRatio: (screenWidth / screenHeight) / 0.80,
+                  children: List.generate(locationdata.length, (index) {
+                    return Container(
+                        child: Card(
                       elevation: 10,
                       child: Padding(
-                          padding: EdgeInsets.all(5),
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: <Widget>[
-                                
-                                Column(
-                                  children: <Widget>[
-                                    DropdownButton<String>(
-                                    value: dropdownValue,
-                                    icon: Icon(Icons.arrow_downward),
-                                    iconSize: 24,
-                                    elevation: 16,
-                                    style: TextStyle(color: Colors.deepPurple),
-                                    underline: Container(
-                                      height: 2,
-                                      color: Colors.deepPurpleAccent,
-                                    ),
-                                    onChanged: (String newValue) {
-                                      setState(() {
-                                        dropdownValue = newValue;
-                                      });
-                                    },
-                                    items: <String>['Kedah', 'Kelantan', 'Perlis']
-                                        .map<DropdownMenuItem<String>>((String value) {
-                                      return DropdownMenuItem<String>(
-                                        value: value,
-                                        child: Text(value),
-                                      );
-                                    }).toList(),
-                                  ),
-                                    
-                                  ],
-                                ),
-                                SizedBox(
-                                  width: 3,
-                                ),
-                                
-                                
-                              ],
-                            ),
-                          ))),
-                ),
-                Visibility(
-                    visible: _visible,
-                    child: Card(
-                      elevation: 5,
-                      child: Container(
-                        height: screenHeight / 12.5,
-                        margin: EdgeInsets.fromLTRB(20, 2, 20, 2),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        padding: EdgeInsets.all(5),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: <Widget>[
-                            Flexible(
-                                child: Container(
-                              height: 30,
-                              child: TextField(
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                  ),
-                                  autofocus: false,
-                                  controller: _prdController,
-                                  decoration: InputDecoration(
-                                      icon: Icon(Icons.search),
-                                      border: OutlineInputBorder())),
-                            )),
-                            Flexible(
-                                child: MaterialButton(
-                                    color: Color.fromARGB(101, 255, 218, 50),
-                                    onPressed: () =>
-                                        {(_prdController.text)},
-                                    elevation: 5,
-                                    child: Text(
-                                      "Search Location",
-                                      style: TextStyle(color: Colors.black),
-                                    )))
+                            GestureDetector(
+                              onTap: () => _onLocationInfo(index),
+                              child: Container(
+                                height: screenWidth / 2.5,
+                                width: screenWidth / 2.5,
+                                child: ClipOval(
+                                    child: CachedNetworkImage(
+                                  fit: BoxFit.fill,
+                                  imageUrl:
+                                      "http://slumberjer.com/visitmalaysia/images/${locationdata[index]['imagename']}",
+                                  placeholder: (context, url) =>
+                                      new CircularProgressIndicator(),
+                                  errorWidget: (context, url, error) =>
+                                      new Icon(Icons.error),
+                                )),
+                              ),
+                            ),
+                            Text(locationdata[index]['loc_name'] + ",",
+                                maxLines: 1,
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black)),
+                            Text(
+                              locationdata[index]['state'],
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black),
+                            ),
                           ],
                         ),
                       ),
-                    )),
-                Text(curtype,
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white)),
-                location == null
-                    ? Flexible(
-                        child: Container(
-                            child: Center(
-                                child: Text(
-                        titlecenter,
-                        style: TextStyle(
-                            color: Color.fromARGB(101, 255, 218, 50),
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold),
-                      ))))
-           :Expanded(
-                        child: GridView.count(
-                            crossAxisCount: 2,
-                            childAspectRatio:
-                                (screenWidth / screenHeight) / 0.8,
-                            children:
-                                List.generate(location.length, (index) {
-                              return Container(
-                                  child: Card(
-                                      elevation: 10,
-                                      child: Padding(
-                                        padding: EdgeInsets.all(5),
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: <Widget>[
-                                            GestureDetector(
-                                              onTap: () =>
-                                                  _onImageDisplay(index),
-                                              child: Container(
-                                                height: screenHeight / 5.9,
-                                                width: screenWidth / 3.5,
-                                                child: ClipOval(
-                                                    child: CachedNetworkImage(
-                                                  fit: BoxFit.fill,
-                                                  imageUrl:
-                                                      "http://slumberjer.com/visitmalaysia/images/<imagename.jpg>",
-                                                  placeholder: (context, url) =>
-                                                      new CircularProgressIndicator(),
-                                                  errorWidget:
-                                                      (context, url, error) =>
-                                                          new Icon(Icons.error),
-                                                )),
-                                              ),
-                                            ),
-                                            Text("image" + location[index]['imagename'],
-                                                maxLines: 1,
-                                                style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.white)),
-                                            Text(
-                                              "state:" +
-                                                  location[index]['state'],
-                                              style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white),
-                                            ),
-                                            Text(
-                                              "location name:" +
-                                                  location[index]
-                                                      ['address'],
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                              ),
-                                            ),
-
-                                          ],
-                                        ),
-                                      )));
-                            })))
-              ]
-            ),
-    ));
-          
-          
+                    ));
+                  }),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
+
+  _onLocationInfo(int index) async {
+    print(locationdata[index]['loc_name']);
+    Location location = new Location(
+        pid: locationdata[index]['pid'],
+        locName: locationdata[index]['loc_name'],
+        state: locationdata[index]['state'],
+        description: locationdata[index]['description'],
+        latitude: locationdata[index]['latitude'],
+        longitude: locationdata[index]['longitude'],
+        url: locationdata[index]['url'],
+        contact: locationdata[index]['contact'],
+        address: locationdata[index]['address'],
+        imagename: locationdata[index]['imagename']);
+
+    await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (BuildContext context) => LocationInfo(
+                  location: location,
+                )));
+    //_loadData();
+  }
+
   void _loadData() {
-    String urlLoadJobs = "http://slumberjer.com/visitmalaysia/load_destinations.php";
+    String urlLoadJobs =
+        "http://slumberjer.com/visitmalaysia/load_destinations.php";
     http.post(urlLoadJobs, body: {}).then((res) {
       setState(() {
+        print(res.body);
         var extractdata = json.decode(res.body);
-        location = extractdata["locations"];
+        locationdata = extractdata["locations"];
+        //_sortItem(curstate);
       });
     }).catchError((err) {
       print(err);
     });
   }
 
-  _onImageDisplay(int index) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-            backgroundColor: Colors.white,
+  void _sortItem(String state) {
+    try {
+      ProgressDialog pr = new ProgressDialog(context,
+          type: ProgressDialogType.Normal, isDismissible: true);
+      pr.style(message: "Searching . . .");
+      pr.show();
+      String urlLoadJobs =
+          "http://slumberjer.com/visitmalaysia/load_destinations.php";
+      http.post(urlLoadJobs, body: {
+        "state": state,
+      }).then((res) {
+        setState(() {
+          curstate = state;
+          var extractdata = json.decode(res.body);
+          locationdata = extractdata["locations"];
+          FocusScope.of(context).requestFocus(new FocusNode());
+          pr.hide();
+        });
+      }).catchError((err) {
+        print(err);
+        pr.hide();
+      });
+      pr.hide();
+    } catch (e) {
+      Toast.show("Error", context,
+          duration: Toast.LENGTH_LONG, gravity: Toast.BOTTOM);
+    }
+  }
+
+ /* Future<bool> _onBackPressed() {
+    savepref(true);
+    return showDialog(
+          context: context,
+          builder: (context) => new AlertDialog(
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.all(Radius.circular(20.0))),
-            content: new Container(
-              color: Colors.white,
-              height: screenHeight / 2.2,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Container(
-                      height: screenWidth / 1.5,
-                      width: screenWidth / 1.5,
-                      decoration: BoxDecoration(
-                          //border: Border.all(color: Colors.black),
-                          image: DecorationImage(
-                              fit: BoxFit.scaleDown,
-                              image: NetworkImage(
-                                  "http://slumberjer.com/visitmalaysia/images/<imagename.jpg>")))),
-                ],
+            title: new Text(
+              'Are you sure?',
+              style: TextStyle(
+                color: Colors.white,
               ),
-            ));
-      },
-    );
+            ),
+            content: new Text(
+              'Do you want to exit an App',
+              style: TextStyle(
+                color: Colors.white,
+              ),
+            ),
+            actions: <Widget>[
+              MaterialButton(
+                  onPressed: () {
+                    SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+                  },
+                  child: Text(
+                    "Exit",
+                    style: TextStyle(
+                      color: Color.fromRGBO(101, 255, 218, 50),
+                    ),
+                  )),
+              MaterialButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(false);
+                  },
+                  child: Text(
+                    "Cancel",
+                    style: TextStyle(
+                      color: Color.fromRGBO(101, 255, 218, 50),
+                    ),
+                  )),
+            ],
+          ),
+        ) ??
+        false;
+  }*/
+
+  Future<void> loadPref() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String state = (prefs.getString('state')) ?? '';
+    setState(() {
+      this.curstate = state;
+    });
+  }
+
+  void savepref(bool value) async {
+    String state = curstate;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (value) {
+      //save preference
+      await prefs.setString('state', state);
+      Toast.show("Preferences have been saved", context,
+          duration: Toast.LENGTH_SHORT, gravity: Toast.BOTTOM);
+    } else {
+      //delete preference
+      await prefs.setString('state', '');
+      Toast.show("Preferences have removed", context,
+          duration: Toast.LENGTH_SHORT, gravity: Toast.BOTTOM);
+    }
   }
 }
